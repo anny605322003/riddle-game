@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>腦筋急轉彎猜謎</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f5f0;
+    color: #1a1a18;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .container { width: 100%; max-width: 560px; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 1.5rem; }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .metric { background: #eeede8; border-radius: 8px; padding: 12px; text-align: center; }
+  .metric-label { font-size: 12px; color: #888780; margin-bottom: 4px; }
+  .metric-val { font-size: 22px; font-weight: 500; }
+  .progress-bar { height: 4px; background: #eeede8; border-radius: 2px; margin-bottom: 1.5rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: #639922; border-radius: 2px; transition: width 0.4s; }
+  .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+  .q-num { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+  .q-text { font-size: 18px; font-weight: 500; line-height: 1.5; margin-bottom: 1.5rem; }
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .opt-btn {
+    padding: 12px 16px; font-size: 15px; border-radius: 8px;
+    border: 0.5px solid rgba(0,0,0,0.2); background: transparent;
+    cursor: pointer; text-align: left; transition: background 0.1s;
+    font-family: inherit; color: #1a1a18;
+  }
+  .opt-btn:hover:not(:disabled) { background: #f5f5f0; }
+  .opt-btn.correct { background: #EAF3DE; border-color: #639922; color: #27500A; }
+  .opt-btn.wrong   { background: #FCEBEB; border-color: #E24B4A; color: #791F1F; }
+  .opt-btn.reveal  { background: #EAF3DE; border-color: #639922; color: #27500A; }
+  .feedback { font-size: 14px; margin-top: 1rem; min-height: 22px; color: #888; }
+  .feedback.ok { color: #3B6D11; font-weight: 500; }
+  .feedback.no { color: #A32D2D; font-weight: 500; }
+  .hint-text { font-size: 13px; color: #aaa; margin-top: 6px; }
+  .btn-row { display: flex; gap: 10px; margin-top: 1rem; }
+  .next-btn, .hint-btn, .restart-btn {
+    padding: 10px 20px; font-size: 14px; border-radius: 8px;
+    border: 0.5px solid rgba(0,0,0,0.2); background: transparent;
+    cursor: pointer; font-family: inherit; color: #1a1a18;
+    transition: background 0.1s;
+  }
+  .next-btn:hover, .hint-btn:hover, .restart-btn:hover { background: #f5f5f0; }
+  .hint-btn { color: #888; }
+  .result-card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 2.5rem; text-align: center; }
+  .result-sub { font-size: 14px; color: #888; margin-bottom: 8px; }
+  .result-score { font-size: 52px; font-weight: 500; margin-bottom: 4px; }
+  .result-total { font-size: 14px; color: #888; margin-bottom: 1.5rem; }
+  .result-rank { font-size: 22px; font-weight: 500; margin-bottom: 1.5rem; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+  .q-counter { font-size: 13px; color: #888; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="game-area"></div>
+</div>
+<script>
+const riddles = [
+  { q: "什麼東西越洗越髒？", opts: ["肥皂", "水", "洗衣機", "抹布"], ans: 0, hint: "它幫你洗東西，自己卻越來越髒。", exp: "肥皂幫你把髒東西帶走，自己卻越用越髒。" },
+  { q: "什麼門永遠關不了？", opts: ["球門", "旋轉門", "鐵門", "木門"], ans: 0, hint: "這種「門」是踢球用的。", exp: "球門沒有門板，所以永遠「關」不起來。" },
+  { q: "一年有幾次「年」？", opts: ["一次", "兩次", "十二次", "三次"], ans: 0, hint: "「年」這個字一年出現幾次？", exp: "「年」這個字本身，一年只出現一次。" },
+  { q: "什麼魚沒有魚骨頭？", opts: ["金魚", "木魚", "鯊魚", "鮪魚"], ans: 1, hint: "這種「魚」是寺廟裡的法器。", exp: "木魚是木頭做的法器，當然沒有骨頭。" },
+  { q: "什麼書讀了也看不懂？", opts: ["天書", "教科書", "食譜", "字典"], ans: 0, hint: "俗話說「有如⋯⋯」。", exp: "「有如天書」是形容完全看不懂的東西。" },
+  { q: "地球上最長的路是什麼？", opts: ["馬路", "絲路", "高速公路", "鐵路"], ans: 0, hint: "每匹「馬」都走過的路。", exp: "馬路遍布全球，所以是最長的路。" },
+  { q: "什麼東西有嘴巴但不會說話？", opts: ["瓶子", "袋子", "箱子", "杯子"], ans: 0, hint: "它有「瓶口」，但沉默無聲。", exp: "瓶子有「瓶口」就是它的「嘴」，但不會說話。" },
+  { q: "小明的爸爸有三個兒子，老大叫大毛，老二叫二毛，老三叫什麼？", opts: ["三毛", "小明", "毛毛", "四毛"], ans: 1, hint: "題目一開始就告訴你了。", exp: "題目說的是「小明的爸爸」，所以小明就是那三個兒子之一。" },
+  { q: "什麼動物走路不用腳？", opts: ["魚", "蛇", "蜘蛛", "蝸牛"], ans: 1, hint: "它用肚子貼地移動。", exp: "蛇沒有腳，用腹部肌肉蠕動前進。" },
+  { q: "越切越大是什麼？", opts: ["洞", "蛋糕", "西瓜", "麵包"], ans: 0, hint: "空的才能越切越大。", exp: "切洞這個動作本身就是在讓洞變大。" }
+];
+
+let current = 0, score = 0, answered = false, lives = 3;
+const total = riddles.length;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let order = shuffle([...Array(total).keys()]);
+
+function getRank(s) {
+  if (s >= 9) return { text: "謎語大師", color: "#3B6D11" };
+  if (s >= 7) return { text: "聰明達人", color: "#185FA5" };
+  if (s >= 5) return { text: "還不錯喔", color: "#BA7517" };
+  return { text: "再接再厲", color: "#A32D2D" };
+}
+
+function render() {
+  const area = document.getElementById('game-area');
+  if (current >= total) {
+    const rank = getRank(score);
+    area.innerHTML = `
+      <div class="result-card">
+        <p class="result-sub">答題結束！</p>
+        <p class="result-score">${score}</p>
+        <p class="result-total">答對 ${score} / ${total} 題</p>
+        <p class="result-rank" style="color:${rank.color}">${rank.text}</p>
+        <button class="restart-btn" onclick="restart()">再玩一次</button>
+      </div>`;
+    return;
+  }
+
+  const idx = order[current];
+  const r = riddles[idx];
+  const progress = Math.round((current / total) * 100);
+
+  area.innerHTML = `
+    <div class="header">
+      <h1>腦筋急轉彎</h1>
+      <span class="q-counter">第 ${current+1} / ${total} 題</span>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">得分</div><div class="metric-val">${score}</div></div>
+      <div class="metric"><div class="metric-label">生命</div><div class="metric-val">${'♥ '.repeat(lives).trim()}</div></div>
+      <div class="metric"><div class="metric-label">正確率</div><div class="metric-val">${current === 0 ? '—' : Math.round(score/current*100) + '%'}</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+    <div class="card">
+      <p class="q-num">第 ${current+1} 題</p>
+      <p class="q-text">${r.q}</p>
+      <div class="options">
+        ${r.opts.map((o,i) => `<button class="opt-btn" id="opt${i}" onclick="pick(${i})">${o}</button>`).join('')}
+      </div>
+      <p class="feedback" id="fb"></p>
+      <p class="hint-text" id="hint-area"></p>
+    </div>
+    <div class="btn-row">
+      <button class="next-btn" id="next-btn" style="display:none" onclick="next()">下一題 →</button>
+      <button class="hint-btn" id="hint-btn" onclick="showHint()">提示</button>
+    </div>`;
+}
+
+function pick(i) {
+  if (answered) return;
+  answered = true;
+  const idx = order[current];
+  const r = riddles[idx];
+  const fb = document.getElementById('fb');
+  document.getElementById('hint-btn').style.display = 'none';
+
+  r.opts.forEach((_, j) => {
+    const btn = document.getElementById('opt' + j);
+    btn.disabled = true;
+    if (j === r.ans) btn.classList.add('reveal');
+  });
+
+  if (i === r.ans) {
+    score++;
+    document.getElementById('opt' + i).classList.add('correct');
+    fb.textContent = '答對了！' + r.exp;
+    fb.className = 'feedback ok';
+  } else {
+    lives = Math.max(0, lives - 1);
+    document.getElementById('opt' + i).classList.add('wrong');
+    fb.textContent = `答錯了！正確答案是「${r.opts[r.ans]}」。${r.exp}`;
+    fb.className = 'feedback no';
+    if (lives === 0) {
+      setTimeout(() => { current = total; render(); }, 1600);
+      return;
+    }
+  }
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function showHint() {
+  const idx = order[current];
+  document.getElementById('hint-area').textContent = '提示：' + riddles[idx].hint;
+  document.getElementById('hint-btn').style.display = 'none';
+}
+
+function next() {
+  current++;
+  answered = false;
+  render();
+}
+
+function restart() {
+  current = 0; score = 0; answered = false; lives = 3;
+  order = shuffle([...Array(total).keys()]);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
